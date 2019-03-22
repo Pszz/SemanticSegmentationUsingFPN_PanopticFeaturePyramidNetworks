@@ -15,6 +15,8 @@ import pandas as pd
 import scipy.misc
 
 import torch
+from functools import partial
+import pickle
 
 from data.CamVid_loader import CamVidDataset
 from data.utils import decode_segmap, decode_seg_map_sequence
@@ -24,6 +26,7 @@ from data import make_data_loader
 
 from model.FPN import FPN
 from model.resnet import resnet
+
 
 def parse_args():
     """
@@ -153,12 +156,23 @@ def main():
     if not os.path.isfile(load_name):
         raise RuntimeError("=> no checkpoint found at '{}'".format(load_name))
     print('====>loading trained model from ' + load_name)
+    pickle.load = partial(pickle.load, encoding="latin1")
+    pickle.Unpickler = partial(pickle.Unpickler, encoding="latin1")
     checkpoint = torch.load(load_name)
     checkepoch = checkpoint['epoch']
     if args.cuda:
         model.load_state_dict(checkpoint['state_dict'])
     else:
         model.load_state_dict(checkpoint['state_dict'])
+
+    #example = torch.ones(1, 3, 128, 128)
+
+    #model = model.eval()
+
+    #traced_script_module = torch.jit.trace(model, example)
+    #output = traced_script_module(example)
+    #print(traced_script_module)
+    #traced_script_module.save('new-fpn-win.pt')
 
     # Load image and save in test_imgs
     test_imgs = []
@@ -196,7 +210,11 @@ def main():
             output = model(image)
         pred = output.data.cpu().numpy()
         pred = np.argmax(pred, axis=1)
-        target = target.cpu().numpy()
+        #print(type(pred))
+        #print(pred.size)
+        target = target.cpu().numpy()        #print(type(target))
+        #print(target.size)
+
         evaluator.add_batch(target, pred)
 
         # show result

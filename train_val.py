@@ -41,7 +41,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train a FPN Semantic Segmentation network')
     parser.add_argument('--dataset', dest='dataset',
 					    help='training dataset',
-					    default='Cityscapes', type=str)
+					    default='NYUDv2', type=str)
     parser.add_argument('--net', dest='net',
 					    help='resnet101, res152, etc',
 					    default='resnet101', type=str)
@@ -53,26 +53,20 @@ def parse_args():
 					    default=110, type=int)
     parser.add_argument('--save_dir', dest='save_dir',
 					    help='directory to save models',
-					    default=None,
+					    default="D:\\disk\\midterm\\experiment\\code\\semantic\\fpn-test\\fpn-test\\run",
 					    nargs=argparse.REMAINDER)
     parser.add_argument('--num_workers', dest='num_workers',
 					    help='number of worker to load data',
 					    default=0, type=int)
     # cuda
     parser.add_argument('--cuda', dest='cuda',
-                      help='whether use CUDA'
-                      default=True, type=bool)
-    # multiple GPUs
-    parser.add_argument('--mGPUs', dest='mGPUs', type=bool,
 					    help='whether use multiple GPUs',
-                        default=False,)
-    parser.add_argument('--gpu_ids', dest='gpu_ids',
-                        help='use which gpu to train, must be a comma-separated list of integers only (defalt=0)',
-                        default='0', type=str)
+                        default=True,
+					    action='store_true')
     # batch size
-    parser.add_argument('--batch_size', dest='batch_size',
+    parser.add_argument('--bs', dest='batch_size',
 					    help='batch_size',
-					    default=None, type=int)
+					    default=5, type=int)
 
     # config optimization
     parser.add_argument('--o', dest='optimizer',
@@ -198,6 +192,9 @@ class Trainer(object):
         elif args.dataset == 'Cityscapes':
             kwargs = {'num_workers': args.num_workers, 'pin_memory': True}
             self.train_loader, self.val_loader, self.test_loader, self.num_class = make_data_loader(args, **kwargs)
+        elif args.dataset == 'NYUDv2':
+            kwargs = {'num_workers': args.num_workers, 'pin_memory': True}
+            self.train_loader, self.val_loader, self.num_class = make_data_loader(args, **kwargs)
 
         # Define network
         if args.net == 'resnet101':
@@ -218,16 +215,15 @@ class Trainer(object):
         elif args.dataset == 'Cityscapes':
             weight = None
             self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode='ce')
+        elif args.dataset == 'NYUDv2':
+            weight = None
+            self.criterion = SegmentationLosses(weight = weight, cuda=args.cuda).build_loss(mode='ce')
 
         self.model = fpn
         self.optimizer = optimizer
 
         # Define Evaluator
         self.evaluator = Evaluator(self.num_class)
-
-        # multiple mGPUs
-        if args.mGPUs:
-            self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
 
         # Using cuda
         if args.cuda:
@@ -273,6 +269,8 @@ class Trainer(object):
                 image, target = batch['X'], batch['l']
             elif self.args.dataset == 'Cityscapes':
                 image, target = batch['image'], batch['label']
+            elif self.args.dataset == 'NYUDv2':
+                image, target = batch['image'], batch['label']
             else:
                 raise NotImplementedError
             if self.args.cuda:
@@ -299,7 +297,7 @@ class Trainer(object):
             #    global_step = iteration + num_img_tr * epoch
             #    self.summary.visualize_image(self.witer, self.args.dataset, image, target, outputs, global_step)
 
-        self.writer.add_scalar('train/total_loss_epoch', train_loss, epoch)
+        self.witer.add_scalar('train/total_loss_epoch', train_loss, epoch)
         print('[Epoch: %d, numImages: %5d]' % (epoch, iteration * self.args.batch_size + image.data.shape[0]))
         print('Loss: %.3f' % train_loss)
 
@@ -368,26 +366,8 @@ class Trainer(object):
 
 def main():
     args = parse_args()
-    if args.save_dir is None:
-        args.save_dir = os.path.join(os.getcwd(), 'run')
     if args.checkname is None:
         args.checkname = 'fpn-' + str(args.net)
-
-    if args.cuda and args.mGPUs:
-        try:
-            args.gpu_ids = [int(s) for s in args.gpu_ids.split(',')]
-        except ValueError:
-            raise ValueError('Argument --gpu_ids must be a comma-separated list of itegers only')
-
-    if args.batch_size is None:
-        args.batch_size = 4 * len(args.gpu_ids)
-
-    if args.lr is None:
-        lrs = {
-            'cityscapes': 0.01,
-        }
-        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
-
     print(args)
     trainer = Trainer(args)
     print('Starting Epoch:', trainer.args.start_epoch)

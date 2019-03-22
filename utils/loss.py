@@ -57,4 +57,3 @@ if __name__ == "__main__":
     print(loss.CrossEntropyLoss(a, b).item())
     print(loss.FocalLoss(a, b, gamma=0, alpha=None).item())
     print(loss.FocalLoss(a, b, gamma=2, alpha=0.5).item())
-

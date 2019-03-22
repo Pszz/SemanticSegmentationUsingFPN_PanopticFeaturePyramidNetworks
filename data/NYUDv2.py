@@ -7,30 +7,45 @@ from mypath import Path
 from torchvision import transforms
 from data import custom_transforms as tr
 
-class CityscapesSegmentation(data.Dataset):
-    NUM_CLASSES = 19
+class NYUDSegmentation(data.Dataset):
+    NUM_CLASSES = 40
 
-    def __init__(self, args, root=Path.db_root_dir('cityscapes'), split="train"):
+    def __init__(self, args, root=Path.db_root_dir('nyudv2'), split="train"):
 
         self.root = root
         self.split = split
         self.args = args
         self.files = {}
 
-        self.images_base = os.path.join(self.root, 'leftImg8bit', self.split)
-        self.annotations_base = os.path.join(self.root, 'gtFine_trainvaltest', 'gtFine', self.split)
+        self.images_base = os.path.join(self.root, self.split, 'image')
+        self.annotations_base = os.path.join(self.root, self.split, 'gtFine')
 
-        self.files[split] = self.recursive_glob(rootdir=self.images_base, suffix='.png')
+        self.files[split] = self.recursive_glob(rootdir=self.images_base, suffix='.jpg')
 
-        self.void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
-        self.valid_classes = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33]
-        self.class_names = ['unlabelled', 'road', 'sidewalk', 'building', 'wall', 'fence', \
-                            'pole', 'traffic_light', 'traffic_sign', 'vegetation', 'terrain', \
-                            'sky', 'person', 'rider', 'car', 'truck', 'bus', 'train', \
-                            'motorcycle', 'bicycle']
+        #self.void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
+        #self.valid_classes = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33]
 
-        self.ignore_index = 255
-        self.class_map = dict(zip(self.valid_classes, range(self.NUM_CLASSES)))
+        self.void_classes = []
+        self.valid_classes = []
+        for i in range(41, 895):
+            self.void_classes.append(i)
+        self.void_classes.remove(255)
+        for i in range(1, 41):
+            self.valid_classes.append(i)
+        self.valid_classes.append(255)
+        self.class_names = ['wall', 'floor', 'cabinet', 'bed', 'chair',\
+                            'sofa', 'table', 'door', 'window', 'bookshelf',\
+                            'picture', 'counter', 'blinds', 'desk', 'shelves',\
+                            'curtain', 'dresser', 'pillow', 'mirror', 'floor mat',\
+                            'clothes', 'ceiling', 'books', 'refridgerator', 'television',\
+                            'paper', 'towel', 'shower curtain', 'box', 'whiteboard',\
+                            'person', 'nightstand', 'toilet', 'sink', 'lamp',\
+                            'bathtub', 'bag', 'other structure', 'other furniture', 'other prop', 'void'
+                            ]
+
+        self.ignore_index = 0
+        self.class_map = dict(zip(self.valid_classes, range(1, self.NUM_CLASSES + 1)))
+        self.class_map[255] = 255
 
         if not self.files[split]:
             raise Exception("No files for split=[%s] found in %s" % (split, self.images_base))
@@ -44,9 +59,8 @@ class CityscapesSegmentation(data.Dataset):
 
         img_path = self.files[self.split][index].rstrip()
         lbl_path = os.path.join(self.annotations_base,
-                                img_path.split(os.sep)[-2],
-                                os.path.basename(img_path)[:-15] + 'gtFine_labelIds.png')
-
+                                img_path.split('.')[0].split('\\')[-1] + ".png")
+        # print(lbl_path) 
         _img = Image.open(img_path).convert('RGB')
         _tmp = np.array(Image.open(lbl_path), dtype=np.uint8)
         _tmp = self.encode_segmap(_tmp)
@@ -59,7 +73,7 @@ class CityscapesSegmentation(data.Dataset):
             return train_set
         elif self.split == 'val':
             val_set = self.transform_val(sample)
-            return val_set
+            return val_set 
         elif self.split == 'test':
             test_set = self.transform_ts(sample)
             return test_set
@@ -77,18 +91,19 @@ class CityscapesSegmentation(data.Dataset):
             :param rootdir is the root directory
             :param suffix is the suffix to be searched
         """
-        return [os.path.join(looproot, filename)
-                for looproot, _, filenames in os.walk(rootdir)
-                for filename in filenames if filename.endswith(suffix)]
+        image_names = []
+        for filename in os.listdir(rootdir):
+            if filename.endswith(suffix):
+                image_names.append(os.path.join(rootdir, filename))
+        return image_names
 
     def transform_tr(self, sample):
         composed_transforms = transforms.Compose([
             # tr.RandomHorizontalFlip(),
-            tr.RandomScaleCrop(base_size=self.args.base_size, crop_size=self.args.crop_size, fill=255),
+            # tr.RandomScaleCrop(base_size=self.args.base_size, crop_size=self.args.crop_size, fill=255),
             # tr.RandomGaussianBlur(),
             tr.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             tr.ToTensor()])
-
         return composed_transforms(sample)
 
     def transform_val(self, sample):
@@ -121,7 +136,7 @@ if __name__ == '__main__':
     args.base_size = 513
     args.crop_size = 513
 
-    cityscapes_train = CityscapesSegmentation(args, split='train')
+    cityscapes_train = NYUDSegmentation(args, split='train')
 
     dataloader = DataLoader(cityscapes_train, batch_size=2, shuffle=True, num_workers=2)
 

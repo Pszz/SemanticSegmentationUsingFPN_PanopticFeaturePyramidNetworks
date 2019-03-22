@@ -14,7 +14,7 @@ def get_label_info(csv_path):
 
     # Arguments
         csv_path: The file path of the class dictionairy
-        
+
     # Returns
         Two lists: one for the class names and the other for the label values
     """
@@ -42,7 +42,7 @@ def one_hot_it(label, label_values):
     # Arguments
         label: The 2D array segmentation image label
         label_values
-        
+
     # Returns
         A 2D array with the same width and hieght as the input, but
         with a depth size of num_classes
@@ -72,7 +72,7 @@ def one_hot_it(label, label_values):
     # print("Time 2 = ", time.time() - st)
 
     return semantic_map
-    
+
 def reverse_one_hot(image):
     """
     Transform a 2D array in one-hot format (depth is num_classes),
@@ -80,11 +80,11 @@ def reverse_one_hot(image):
     the classified class key.
 
     # Arguments
-        image: The one-hot format image 
-        
+        image: The one-hot format image
+
     # Returns
         A 2D array with the same width and hieght as the input, but
-        with a depth size of 1, where each pixel value is the classified 
+        with a depth size of 1, where each pixel value is the classified
         class key.
     """
     # w = image.shape[0]
@@ -107,7 +107,7 @@ def colour_code_segmentation(image, label_values):
     # Arguments
         image: single channel array where each value represents the class key.
         label_values
-        
+
     # Returns
         Colour coded image for segmentation visualization
     """
@@ -119,7 +119,7 @@ def colour_code_segmentation(image, label_values):
     # for i in range(0, w):
     #     for j in range(0, h):
     #         x[i, j, :] = colour_codes[int(image[i, j])]
-    
+
     colour_codes = np.array(label_values)
     x = colour_codes[image.astype(int)]
 
